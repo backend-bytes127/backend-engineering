@@ -35,7 +35,7 @@ Users can assign a priority level to each task by using the priority attribute. 
 To test the POST API, execute the following command on your terminal
 
 ```
-curl -X POST -H "Content-Type: application/json" -d '{"title": "Task 1", "description": "This is task 1", "completed": false, "priority": "low"}' http://localhost:5000/tasks
+curl -X POST -H "Content-Type: application/json" -d '{"title": "Task 1", "description": "This is task 1", "completed": false, "priority": "low"}' http://localhost:3000/tasks
   ```
 
 To test the GET API, execute the following command on your terminal
@@ -43,3 +43,6 @@ To test the GET API, execute the following command on your terminal
 ```
 curl -X GET 'http://localhost:3000/tasks?sortBy=createdAt:desc&completed=true&priority=high'
 ```
+
+
+[Tutorial](https://devcorner.hashnode.dev/creating-a-task-management-api-a-step-by-step-guide)

@@ -100,6 +100,6 @@ app.delete('/tasks/:id', (req: Request, res: Response) => {
   res.sendStatus(204);
 });
 
-app.listen(3000, () => {
-  console.log('Server running on port 3000');
+app.listen(5000, () => {
+  console.log('Server running on port 5000');
 });

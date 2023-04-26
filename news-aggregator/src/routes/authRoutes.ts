@@ -11,7 +11,7 @@ interface User {
 }
 
 const users: User[] = [];
-authRoute.post('/signup', async (req, res) => {
+authRoute.post('/register', async (req, res) => {
     const {email, password} = req.body;
 
     const existingUser = users.find((user) => user.email == email);
@@ -28,7 +28,7 @@ authRoute.post('/signup', async (req, res) => {
 })
 
 
-authRoute.post('/signin', async (req,res) => {
+authRoute.post('/login', async (req,res) => {
     const {email, password} = req.body;
 
     const user = users.find((user) => user.email == email);

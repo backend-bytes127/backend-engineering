@@ -1,46 +1,114 @@
-import express, { Request, Response } from 'express';
-import becrypt from 'bcrypt';
+// server/src/routes/user.ts
+
+// global dependencies
+import * as dotenv from 'dotenv';
+dotenv.config();
+const {ENCRYPTION_KEY, AUTH_TOKEN_KEY } = process.env;
+import {Router} from 'express';
+const userRoute = Router();
+import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-export const authRoute = express.Router();
 
+// project dependencies
+import {UserResource} from '../repositories/UserRepository';
+import { validateHasParameters, validateEmailFormat, validatePasswordLength } from "../middleware/validation";
+import userRepository from '../repositories/UserRepository';
 
+/**
+ * Register an user with email, password and name inputs
+ */
+userRoute.post(
+  "/register",
+  validateHasParameters("email", "password", "name"),
+  validateEmailFormat,
+  validatePasswordLength,
+  async (req, res) => {
+    const { name, email, password } = req.body;
+    try {
+      const userExist = await userRepository.getUserBy({id: email, matchField: 'email'});
+      if (userExist) {
+        return res.status(409).json({ error: "User already exist" });
+      }
 
-interface User {
-    email: string;
-    password: string;
-}
+      const date = new Date().toISOString();
 
-const users: User[] = [];
-authRoute.post('/register', async (req, res) => {
-    const {email, password} = req.body;
+      // Encrypt user password
+      const passwordHash = await bcrypt.hash(password, 8);
 
-    const existingUser = users.find((user) => user.email == email);
-    if (existingUser) {
-        return res.status(409).send('Username already exists');
+      // Create auth token with user info and expiry date
+      const userData = {
+        name: name,
+        email: email,
+        password: passwordHash,
+        createdAt: date,
+        updatedAt: date,
+      };
+      const newUser = new UserResource(userData);
+
+      // Persist user data
+      await userRepository.createUser(newUser);
+
+      const jwtOptions = {
+        expiresIn: '24h',  // Expire token in 24 hours
+      };
+
+      const authToken = jwt.sign(newUser.data, AUTH_TOKEN_KEY!, jwtOptions);
+
+      return res.status(200).json({
+        success: true,
+        user: {
+          user_id: newUser.id,
+          email: newUser.data.email,
+          name: newUser.data.name,
+          auth_token: authToken,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: `Internal Error` });
     }
+  }
+);
 
-    const hashedPassword = await becrypt.hash(password, 8);
+/**
+ * Authenticate a user login session using input email and password if valid.
+ */
+userRoute.post(
+  "/login",
+  validateHasParameters("email", "password"),
+  async (req, res) => {
+    const { email, password } = req.body;
 
-    const user: User = {email, password: hashedPassword};
-    users.push(user);
+    try {
+      // Check if user exist AND password supplied is correct
+      const user = await userRepository.getUserBy({id: email, matchField: 'email'});
+      const userExists = !!user;
+      const passwordCorrect = userExists && (await bcrypt.compare(password, user.data.password));
+      if(userExists && passwordCorrect) {
 
-    res.status(201).send('User created successfully');
-})
+        const jwtOptions = {
+          expiresIn: '24h',  // Expire token in 24 hours
+        };
+        
+        const authToken = jwt.sign(user.data, AUTH_TOKEN_KEY!, jwtOptions);
 
+        return res.status(200).json({
+          success: true,
+          user: {
+            user_id: user.id,
+            email: user.data.email,
+            name: user.data.name,
+            auth_token: authToken,
+          },
+        });
+      }
 
-authRoute.post('/login', async (req,res) => {
-    const {email, password} = req.body;
-
-    const user = users.find((user) => user.email == email);
-    if(!user) {
-        return res.status(401).send('Invalid username or password');
+      return res.status(400).json({error: 'Invalid Credentials'});
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({ error: `Server Error` });
     }
+  }
+);
 
-    const isPasswordValid = await becrypt.compare(password, user.password);
-    if(!isPasswordValid) {
-        return res.status(401).send('Invalud username or password');
-    }
-
-    const token = jwt.sign({email}, 'secret');
-    res.status(200).send({token});
-})
+export default userRoute;
